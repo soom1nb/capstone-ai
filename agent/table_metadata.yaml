@@ -1,0 +1,97 @@
+# table_metadata.yaml — 테이블별 조인 패턴 및 메타데이터
+# 새 공공데이터 추가 시 이 파일에만 항목 추가하면 됩니다.
+
+rent_deal:
+  description: 전월세 실거래 데이터 (2011~현재)
+  category: 부동산
+  key_column: ldong_code
+  join_path: rent_deal.ldong_code = ldong.ldong_code
+  filters: monthly_rent > 10
+  note: adong_code 직접 조인 절대 금지. MIN 대신 AVG 사용 권장
+
+library:
+  description: 도서관 마스터 (공공/작은도서관)
+  category: 시설
+  key_column: adong_code
+  join_path: library.adong_code = adong.adong_code
+  sub_join: library_hours.library_id = library.id
+  note: univ_adong과 library 직접 조인 금지
+
+store:
+  description: 상가 점포 (소상공인 데이터)
+  category: 시설
+  key_column: adong_code
+  join_path: store.adong_code = adong.adong_code
+  note: 업종코드 알면 WHERE store.category_code = '코드' 로 직접 필터링. business_category 조인 불필요
+
+park:
+  description: 서울시 공원
+  category: 시설
+  bridge_table: park_adong
+  join_path: park_adong.park_id = park.id, park_adong.adong_code = adong.adong_code
+  alt_join: park_ldong.ldong_code = ldong.ldong_code (법정동 기준 시)
+
+univ:
+  description: 대학 캠퍼스
+  category: 장소
+  to_rent_deal: univ → univ_ldong(ldong_code) → adjacent_ldong(양방향) → rent_deal(ldong_code)
+  to_facility: univ → univ_adong(adong_code) → adjacent_adong(양방향) → [시설](adong_code)
+  note: 월세는 ldong 경로, 도서관/공원/상가는 adong 경로 사용
+
+subway_station:
+  description: 지하철역 (1~9호선 서울 구간)
+  category: 교통
+  key_column: adong_code
+  join_path: subway_station.adong_code = adong.adong_code
+  sub_join: subway_congestion.station_id = subway_station.id
+  note: ldong_code도 보유. day_type = '평일'/'토요일'/'일요일'/'휴일'
+
+bus_stop:
+  description: 버스 정류장
+  category: 교통
+  key_column: adong_code
+  join_path: bus_stop.adong_code = adong.adong_code
+  sub_join: bus_congestion.bus_stop_id = bus_stop.id
+  note: location NULL 719건 존재 (가상/차고지)
+
+adong:
+  description: 행정동 (426개)
+  category: 행정구역
+  key_column: adong_code
+  join_path: adong.gu_code = gu.gu_code
+  note: ldong_code 컬럼 없음. LEFT(adong_code, 5) = gu_code로 gu 연결 가능
+
+ldong:
+  description: 법정동 (467개)
+  category: 행정구역
+  key_column: ldong_code
+  join_path: ldong.gu_code = gu.gu_code
+  note: gu_code 컬럼 있음. adong을 경유하지 않고 ldong → gu 직접 조인
+
+ldong_population:
+  description: 법정동 월별 인구 (2022-09~현재)
+  category: 인구
+  key_column: ldong_code
+  join_path: ldong_population.ldong_code = ldong.ldong_code
+  note: date 컬럼으로 기간 필터링 권장
+
+adong_population:
+  description: 행정동 월별 인구 (2022-09~현재)
+  category: 인구
+  key_column: adong_code
+  join_path: adong_population.adong_code = adong.adong_code
+  note: date 컬럼으로 기간 필터링 권장
+
+gu_metric:
+  description: 자치구별 지표 시계열 (안전등급, 인구, 교통 등)
+  category: 지표
+  key_column: gu_code
+  join_path: gu_metric.gu_code = gu.gu_code
+  note: metric_code로 원하는 지표 필터링. metric 테이블에서 코드 확인 가능
+
+# 새 공공데이터 추가 예시:
+# welfare_center:
+#   description: 복지관 시설 데이터
+#   category: 시설
+#   key_column: adong_code
+#   join_path: welfare_center.adong_code = adong.adong_code

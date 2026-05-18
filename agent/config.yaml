@@ -1,0 +1,77 @@
+# config.yaml — 전체 시스템 설정
+# 코드 수정 없이 이 파일만 변경하면 됩니다.
+
+# ── 모델 설정 ──────────────────────────────────────────────────────────────
+models:
+  fast: gpt-4o-mini
+  smart: gpt-4o
+  default: smart
+
+# 단계별 모델 지정 (변경 시 여기만 수정)
+stage_models:
+  classification: smart   # 1단계: 질문 분류
+  sql_generation: smart   # 2단계: SQL 생성
+  selection: smart        # 3단계: 동네 선정
+  info_answer: smart      # 3단계: 정보 조회 답변
+
+# ── SQL 실행 설정 ───────────────────────────────────────────────────────────
+sql:
+  max_retry: 3            # SQL 재시도 횟수
+  timeout: 60             # LLM 타임아웃 (초)
+  max_retries: 6          # LLM API 재시도 횟수
+  result_limit: 5         # 동네 추천 기본 LIMIT
+
+# ── 파이프라인 설정 ─────────────────────────────────────────────────────────
+pipeline:
+  max_neighborhoods: 2    # 최대 추천 동네 수
+  monthly_rent_min: 10    # 월세 최소값 필터 (만원, 비정상 거래 제외)
+
+# ── store 업종 코드 ─────────────────────────────────────────────────────────
+# 새 업종 추가 시 여기에만 추가하면 됩니다.
+store_codes:
+  카페/커피전문점: I21201
+  편의점: G20405
+  슈퍼마켓: G20404
+  독서실/스터디카페: R10202
+  헬스장: R10307
+  약국: G21501
+  종합병원: Q10101
+  일반병원: Q10102
+  치과병원: Q10103
+  한방병원: Q10104
+  내과/소아과 의원: Q10201
+  외과 의원: Q10202
+  신경/정신과 의원: Q10203
+  피부/비뇨기과 의원: Q10204
+  안과 의원: Q10205
+  이비인후과 의원: Q10206
+  산부인과 의원: Q10207
+  성형외과 의원: Q10208
+  치과 의원: Q10210
+  한의원: Q10211
+  기타 의원: Q10209
+  셀프 빨래방: S20902
+  기숙사/고시원: I10201
+  음식점 전체: "LIKE 'I2%'"
+  식료품 소매: "LIKE 'G205%'"
+  스포츠 서비스: "LIKE 'R103%'"
+
+# ── query_type별 파이프라인 단계 정의 ──────────────────────────────────────
+# 새 query_type 추가 시 여기에 정의하면 agent.py가 자동으로 인식합니다.
+query_types:
+  recommendation:
+    description: 동네 추천이 목적인 질문
+    steps: [sql, selection]
+    visualization: true
+  info:
+    description: 특정 시설/정보 조회가 목적인 질문
+    steps: [sql, info_answer]
+    visualization: false
+  none:
+    description: direct/blocked인 경우
+    steps: []
+    visualization: false
+
+validation:
+  confidence_threshold: 0.7   # 이 값 미만이면 재시도
+  enable: true    # false로 설정하면 검증 건너뜀
