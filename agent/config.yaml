@@ -57,7 +57,6 @@ store_codes:
   스포츠 서비스: "LIKE 'R103%'"
 
 # ── query_type별 파이프라인 단계 정의 ──────────────────────────────────────
-# 새 query_type 추가 시 여기에 정의하면 agent.py가 자동으로 인식합니다.
 query_types:
   recommendation:
     description: 동네 추천이 목적인 질문
@@ -72,6 +71,13 @@ query_types:
     steps: []
     visualization: false
 
+# ── 시각화 타입 정의 ────────────────────────────────────────────────────────
+visualization_types:
+  - bar    # 동네 간 수치 비교 (월세, 카페 수 등)
+  - line   # 시간 추이 (월별 월세 추이, 인구 변화 등)
+  - table  # 목록/시간표 (도서관 운영시간, 시설 목록 등)
+  - none   # 텍스트로 충분한 경우
+
 validation:
-  confidence_threshold: 0.7   # 이 값 미만이면 재시도
-  enable: true    # false로 설정하면 검증 건너뜀
+  confidence_threshold: 0.7
+  enable: true

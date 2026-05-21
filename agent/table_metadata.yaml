@@ -44,7 +44,11 @@ subway_station:
   key_column: adong_code
   join_path: subway_station.adong_code = adong.adong_code
   sub_join: subway_congestion.station_id = subway_station.id
-  note: ldong_code도 보유. day_type = '평일'/'토요일'/'일요일'/'휴일'
+  note: |
+    호선 필터는 line 컬럼 사용 (name 아님). 예: WHERE line = '2호선'
+    ldong_code도 보유하므로 rent_deal과 직접 조인 가능:
+    subway_station.ldong_code = rent_deal.ldong_code → ldong → gu
+    day_type = '평일'/'토요일'/'일요일'/'휴일'
 
 bus_stop:
   description: 버스 정류장

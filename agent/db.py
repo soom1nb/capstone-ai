@@ -16,6 +16,9 @@ import os
 import warnings
 import yaml
 from functools import lru_cache
+from dotenv import load_dotenv 
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))  
 
 from langchain_community.utilities import SQLDatabase
 from langchain_openai import ChatOpenAI
@@ -92,7 +95,7 @@ def _build_database_url() -> str:
     return (
         f"postgresql+psycopg2://{os.environ['DB_USER']}:{os.environ['DB_PASSWORD']}"
         f"@{os.environ['DB_HOST']}:{os.environ.get('DB_PORT', 5432)}"
-        f"/{os.environ.get('DB_NAME', 'dp_db')}?sslmode=require"
+        f"/{os.environ.get('DB_NAME', 'dp_db')}"
     )
 
 

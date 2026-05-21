@@ -26,7 +26,7 @@ load_dotenv()
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from db import get_db, get_llm, get_schema_context, get_config, get_stage_model, get_store_codes_text
-from schemas import ClassificationOutput, SelectionOutput
+from schemas import ClassificationOutput, SelectionOutput, InfoOutput
 from sql_runner import run_text_to_sql
 from prompts import CLASSIFICATION_PROMPT, SELECTION_PROMPT, INFO_ANSWER_PROMPT
 
@@ -84,6 +84,7 @@ def run_agent(question: str) -> dict:
         question=question,
         needed_tables=classification.needed_tables,
         join_hint=classification.join_hint,
+        sql_plans=[p.model_dump() for p in classification.sql_plans],
     )
 
     # ── 3단계: query_type별 분기 ──────────────────────────────────────────────
@@ -94,18 +95,26 @@ def run_agent(question: str) -> dict:
     if "info_answer" in steps:
         print("\n[3단계] 정보 조회 답변 생성 중...")
         llm_info = get_llm(get_stage_model("info_answer"))
-        answer_obj = llm_info.invoke([
+
+        info_result = llm_info.with_structured_output(
+            InfoOutput, method="function_calling"
+        ).invoke([
             SystemMessage(content=INFO_ANSWER_PROMPT),
             HumanMessage(content=f"질문: {question}\nSQL 결과: {sql_result['result'] or '조회 결과 없음'}"),
         ])
+
         elapsed = round(time.time() - start, 2)
-        print(f"\n[최종 답변]\n{answer_obj.content}")
+        print(f"\n[최종 답변]\n{info_result.answer}")
         print(f"\n총 소요시간: {elapsed}초 | SQL 시도: {sql_result.get('attempts', 0)}회")
 
         return {
-            "answer": answer_obj.content,
+            "answer": info_result.answer,
             "neighborhoods": [],
-            "visualization": {"type": "table"},
+            "visualizations": {
+                "type": info_result.visualization_type,
+                "title": info_result.visualization_title,
+                "data": [d.model_dump() for d in info_result.visualization_data],
+            },
             "route": "db",
             "query_type": classification.query_type,
             "sql": sql_result.get("sql"),
@@ -162,15 +171,16 @@ def run_agent(question: str) -> dict:
         print(f"\n총 소요시간: {elapsed}초 | SQL 시도: {sql_result.get('attempts', 0)}회")
 
         return {
-            "answer": selection.answer,
-            "neighborhoods": [n.model_dump() for n in selection.neighborhoods],
-            "visualization": {
-                "type": selection.visualization_type,
-                "title": selection.visualization_title,
-                "unit": selection.visualization_unit,
-                "data": [d.model_dump() for d in selection.visualization_data],
-                "reason": selection.visualization_reason,
-            },
+            "answer": info_result.answer,
+            "neighborhoods": [],
+            "visualizations": [
+                {
+                    "type": info_result.visualization_type,
+                    "title": info_result.visualization_title,
+                    "unit": "",
+                    "data": [d.model_dump() for d in info_result.visualization_data],
+                }
+            ] if info_result.visualization_type != "none" else [],
             "route": "db",
             "query_type": classification.query_type,
             "sql": sql_result.get("sql"),
@@ -183,7 +193,7 @@ def run_agent(question: str) -> dict:
     return {
         "answer": "처리할 수 없는 요청입니다.",
         "neighborhoods": [],
-        "visualization": {"type": "none"},
+        "visualizations": [],
         "route": classification.route,
         "query_type": classification.query_type,
         "sql": None,
