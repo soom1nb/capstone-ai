@@ -7,8 +7,10 @@ rent_deal:
   key_column: ldong_code
   join_path: rent_deal.ldong_code = ldong.ldong_code
   filters: monthly_rent > 10
-  note: adong_code 직접 조인 절대 금지. MIN 대신 AVG 사용 권장
-
+  note: |
+    adong_code 직접 조인 절대 금지. MIN 대신 AVG 사용 권장
+    store와 직접 조인 금지 — 카운트 폭발 발생
+    월세와 시설 수를 같이 조회할 때는 반드시 별도 SQL로 분리할 것
 library:
   description: 도서관 마스터 (공공/작은도서관)
   category: 시설
@@ -22,7 +24,10 @@ store:
   category: 시설
   key_column: adong_code
   join_path: store.adong_code = adong.adong_code
-  note: 업종코드 알면 WHERE store.category_code = '코드' 로 직접 필터링. business_category 조인 불필요
+  note: |
+    업종코드 알면 WHERE store.category_code = '코드' 로 직접 필터링. business_category 조인 불필요
+    rent_deal과 직접 조인 금지 — 카운트 폭발 발생
+    월세와 시설 수를 같이 조회할 때는 반드시 별도 SQL로 분리할 것
 
 park:
   description: 서울시 공원

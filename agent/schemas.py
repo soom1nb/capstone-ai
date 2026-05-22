@@ -54,7 +54,7 @@ class VisualizationData(BaseModel):
     is_baseline: bool = Field(default=False, description="True면 비교 기준선으로 표시")
 
 class VisualizationChart(BaseModel):
-    type: str = Field(description="'bar' | 'line' | 'none'")
+    type: str = Field(description="'bar' | 'line' | 'table' | 'none'")
     title: str = Field(default="", description="차트 제목")
     unit: str = Field(default="", description="수치 단위. 예: 만원, 개, %")
     data: list[VisualizationData] = Field(default_factory=list)
