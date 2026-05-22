@@ -9,7 +9,6 @@ __pycache__/
 
 # 가상환경
 venv/
-.env/
 .venv/
 
 # IDE
@@ -19,4 +18,8 @@ venv/
 # OS
 .DS_Store
 
+# 보안
 *.pem
+
+# 테스트 결과
+test_result_*.json

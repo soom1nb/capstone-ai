@@ -68,10 +68,15 @@ def run_agent(question: str) -> dict:
     print(f"  join_hint:     {classification.join_hint}")
 
     if classification.route in {"direct", "blocked"}:
+        if classification.route == "blocked":
+            answer = "저는 서울 자취/동네 추천 서비스예요. 동네 추천, 월세, 주변 시설 등에 대해 물어봐 주세요! 😊"
+        else:
+            answer = classification.message
+
         return {
-            "answer": classification.message,
+            "answer": answer,
             "neighborhoods": [],
-            "visualization": {"type": "none"},
+            "visualizations": [],
             "route": classification.route,
             "query_type": classification.query_type,
             "sql": None,
@@ -110,11 +115,14 @@ def run_agent(question: str) -> dict:
         return {
             "answer": info_result.answer,
             "neighborhoods": [],
-            "visualizations": {
-                "type": info_result.visualization_type,
-                "title": info_result.visualization_title,
-                "data": [d.model_dump() for d in info_result.visualization_data],
-            },
+            "visualizations": [
+                {
+                    "type": info_result.visualization_type,
+                    "title": info_result.visualization_title,
+                    "unit": "",
+                    "data": [d.model_dump() for d in info_result.visualization_data],
+                }
+            ] if info_result.visualization_type != "none" else [],
             "route": "db",
             "query_type": classification.query_type,
             "sql": sql_result.get("sql"),
@@ -171,16 +179,17 @@ def run_agent(question: str) -> dict:
         print(f"\n총 소요시간: {elapsed}초 | SQL 시도: {sql_result.get('attempts', 0)}회")
 
         return {
-            "answer": info_result.answer,
-            "neighborhoods": [],
+            "answer": selection.answer,
+            "neighborhoods": [n.model_dump() for n in selection.neighborhoods],
             "visualizations": [
                 {
-                    "type": info_result.visualization_type,
-                    "title": info_result.visualization_title,
-                    "unit": "",
-                    "data": [d.model_dump() for d in info_result.visualization_data],
+                    "type": v.type,
+                    "title": v.title,
+                    "unit": v.unit,
+                    "data": [d.model_dump() for d in v.data],
                 }
-            ] if info_result.visualization_type != "none" else [],
+                for v in selection.visualizations
+            ],
             "route": "db",
             "query_type": classification.query_type,
             "sql": sql_result.get("sql"),
