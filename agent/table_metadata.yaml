@@ -98,6 +98,45 @@ gu_metric:
   join_path: gu_metric.gu_code = gu.gu_code
   note: metric_code로 원하는 지표 필터링. metric 테이블에서 코드 확인 가능
 
+amenity:
+  description: 시설 통합 테이블 (카페/편의점/헬스장/병원/공원 등 53만 건)
+  category: 시설
+  key_column: id
+  join_path: amenity.id = amenity_adong.amenity_id → amenity_adong.adong_code = adong.adong_code
+  note: |
+    category 컬럼으로 필터링 (한국어 금지, 영문 소문자만 사용):
+      cafe, convenience, gym, hospital, pharmacy, laundry, studycafe,
+      mart, restaurant, library, park, subway_station, university
+    store보다 단순하게 시설 수 집계 가능. category_code 불필요.
+    법정동 기준: amenity.id = amenity_ldong.amenity_id → amenity_ldong.ldong_code = ldong.ldong_code
+
+nearest_subway_adong:
+  description: 행정동별 최근접 지하철역 이름·거리 (rank 1 = 가장 가까운 역)
+  category: 교통
+  key_column: adong_code
+  join_path: nearest_subway_adong.adong_code = adong.adong_code
+  note: |
+    rank=1만 사용하면 동네별 가장 가까운 역까지 거리 비교 가능
+    컬럼: rank, station_name, distance_m, adong_code
+    subway_station 조인 없이 바로 접근성 집계 가능
+
+nearest_subway_ldong:
+  description: 법정동별 최근접 지하철역 이름·거리 (rank 1 = 가장 가까운 역)
+  category: 교통
+  key_column: ldong_code
+  join_path: nearest_subway_ldong.ldong_code = ldong.ldong_code
+  note: "rank=1만 사용. 컬럼: rank, station_name, distance_m, ldong_code"
+
+adjacent_gu:
+  description: 인접 자치구 관계 (gu1_code ↔ gu2_code 양방향)
+  category: 행정구역
+  note: gu1_code, gu2_code 양방향 조인. 구 단위 인접 지역 확장 쿼리에 활용
+
+rent_deal_ldong_adong_map:
+  description: 법정동↔행정동 코드 매핑 테이블
+  category: 행정구역
+  note: ldong_code ↔ adong_code 변환이 필요할 때 사용
+
 # 새 공공데이터 추가 예시:
 # welfare_center:
 #   description: 복지관 시설 데이터
