@@ -75,6 +75,7 @@ class InfoOutput(BaseModel):
         description="'table'(목록/시간표) | 'bar'(수치 비교) | 'line'(시간 추이) | 'none'"
     )
     visualization_title: str = Field(default="", description="시각화 제목")
+    visualization_unit: str = Field(default="", description="수치 단위. 예: 만원, 개, %, km. 단위 없으면 빈 문자열")
     visualization_data: list[InfoVisualizationData] = Field(
         default_factory=list,
         description="테이블/차트 데이터"
