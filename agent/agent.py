@@ -31,13 +31,55 @@ from sql_runner import run_text_to_sql
 from prompts import CLASSIFICATION_PROMPT, SELECTION_PROMPT, INFO_ANSWER_PROMPT
 
 
-def run_agent(question: str) -> dict:
+def _format_history(history: list) -> str:
+    """대화 히스토리를 프롬프트에 삽입할 텍스트로 변환합니다."""
+    if not history:
+        return "없음"
+    lines = []
+    for i, entry in enumerate(history[-5:], 1):  # 최근 5턴만 사용
+        lines.append(f"[{i}번째 대화]")
+        lines.append(f"사용자: {entry['question']}")
+        if entry.get("neighborhoods"):
+            hoods = ", ".join(
+                f"{n.get('gu_name', '')} {n.get('ldong_name', '')}(법정동)"
+                for n in entry["neighborhoods"]
+            )
+            lines.append(f"추천된 동네(법정동 이름): {hoods}")
+        lines.append(f"AI: {entry['answer'][:300]}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def _enrich_question(question: str, history: list) -> str:
+    """이전 추천 동네 정보를 질문 앞에 붙여 SQL 생성 단계에서도 맥락을 이해하게 합니다."""
+    if not history:
+        return question
+    for entry in reversed(history):
+        if entry.get("neighborhoods"):
+            hoods = ", ".join(
+                f"{n.get('gu_name', '')} {n.get('ldong_name', '')}"
+                for n in entry["neighborhoods"]
+            )
+            return (
+                f"[이전 추천 동네(법정동 이름): {hoods}]\n"
+                f"※ 이 동네 이름은 법정동(ldong)입니다. 시설 조회 시 amenity_ldong → ldong.name 경로를 사용하세요.\n"
+                f"{question}"
+            )
+    return question
+
+
+def run_agent(question: str, history: list = None) -> dict:
     """
     파이프라인:
       1단계: 질문 분류  — route / query_type / needed_tables / join_hint
       2단계: SQL 실행   — Text-to-SQL + YAML 힌트 + 재시도
       3단계: 응답 생성  — query_type별 분기 (config.yaml의 query_types 기반)
+
+    Args:
+        question: 사용자 질문
+        history:  이전 대화 목록. 각 항목은 {"question", "answer", "neighborhoods"} 딕셔너리
     """
+    history = history or []
     start = time.time()
     cfg = get_config()
     pipeline_cfg = cfg.get("pipeline", {})
@@ -48,6 +90,8 @@ def run_agent(question: str) -> dict:
     print(f"{'='*60}")
 
     schema_context = get_schema_context()
+    conversation_history = _format_history(history)
+    enriched_question = _enrich_question(question, history)
 
     # ── 1단계: 질문 분류 ──────────────────────────────────────────────────────
     print("\n[1단계] 질문 분류 중...")
@@ -57,7 +101,8 @@ def run_agent(question: str) -> dict:
     ).invoke([
         SystemMessage(content=CLASSIFICATION_PROMPT.format(
             schema_context=schema_context,
-            store_codes=get_store_codes_text(),   # config.yaml에서 동적 주입
+            store_codes=get_store_codes_text(),
+            conversation_history=conversation_history,
         )),
         HumanMessage(content=question),
     ])
@@ -86,7 +131,7 @@ def run_agent(question: str) -> dict:
     # ── 2단계: SQL 실행 ───────────────────────────────────────────────────────
     print("\n[2단계] SQL 생성 및 실행 중...")
     sql_result = run_text_to_sql(
-        question=question,
+        question=enriched_question,
         needed_tables=classification.needed_tables,
         join_hint=classification.join_hint,
         sql_plans=[p.model_dump() for p in classification.sql_plans],
@@ -105,7 +150,7 @@ def run_agent(question: str) -> dict:
             InfoOutput, method="function_calling"
         ).invoke([
             SystemMessage(content=INFO_ANSWER_PROMPT),
-            HumanMessage(content=f"질문: {question}\nSQL 결과: {sql_result['result'] or '조회 결과 없음'}"),
+            HumanMessage(content=f"질문: {enriched_question}\nSQL 결과: {sql_result['result'] or '조회 결과 없음'}"),
         ])
 
         elapsed = round(time.time() - start, 2)
@@ -119,7 +164,7 @@ def run_agent(question: str) -> dict:
                 {
                     "type": info_result.visualization_type,
                     "title": info_result.visualization_title,
-                    "unit": "",
+                    "unit": info_result.visualization_unit,
                     "data": [d.model_dump() for d in info_result.visualization_data],
                 }
             ] if info_result.visualization_type != "none" else [],
@@ -138,11 +183,11 @@ def run_agent(question: str) -> dict:
             SelectionOutput, method="function_calling"
         ).invoke([
             SystemMessage(content=SELECTION_PROMPT.format(
-                question=question,
+                question=enriched_question,
                 sql_result=sql_result["result"] or "조회 결과 없음",
                 max_neighborhoods=max_neighborhoods,
             )),
-            HumanMessage(content=question),
+            HumanMessage(content=enriched_question),
         ])
 
         # 보강 쿼리 실행
@@ -165,11 +210,11 @@ def run_agent(question: str) -> dict:
                         SelectionOutput, method="function_calling"
                     ).invoke([
                         SystemMessage(content=SELECTION_PROMPT.format(
-                            question=question,
+                            question=enriched_question,
                             sql_result=enriched,
                             max_neighborhoods=max_neighborhoods,
                         )),
-                        HumanMessage(content=question),
+                        HumanMessage(content=enriched_question),
                     ])
             except Exception as e:
                 print(f"[보강 쿼리 실패] {e}")
@@ -220,13 +265,25 @@ if __name__ == "__main__":
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
         print("슬기로운 자취생활 AI Agent")
-        print("종료: Ctrl+C\n")
+        print("종료: Ctrl+C | 히스토리 초기화: /clear\n")
+        history = []
         while True:
             try:
                 q = input("질문: ").strip()
-                if q:
-                    result = run_agent(q)
-                    print(json.dumps(result, ensure_ascii=False, indent=2))
+                if not q:
+                    continue
+                if q == "/clear":
+                    history = []
+                    print("대화 기록을 초기화했습니다.\n")
+                    continue
+                result = run_agent(q, history=history)
+                history.append({
+                    "question": q,
+                    "answer": result.get("answer", ""),
+                    "neighborhoods": result.get("neighborhoods", []),
+                })
+                history = history[-10:]
+                print(json.dumps(result, ensure_ascii=False, indent=2))
             except KeyboardInterrupt:
                 print("\n종료합니다.")
                 break
