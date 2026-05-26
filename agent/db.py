@@ -16,7 +16,8 @@ import os
 import warnings
 import yaml
 from functools import lru_cache
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))  
 
@@ -147,10 +148,11 @@ def get_llm(model_key: str, temperature: float = 0) -> ChatOpenAI:
     sql_cfg = cfg.get("sql", {})
 
     return ChatOpenAI(
-        model=models.get(model_key, models.get("smart", "gpt-4o")),
+        model=models.get(model_key, models.get("smart", "gpt-5")),
         temperature=temperature,
         timeout=sql_cfg.get("timeout", 60),
         max_retries=sql_cfg.get("max_retries", 6),
+        base_url="https://factchat-cloud.mindlogic.ai/v1/gateway",
     )
 
 
@@ -159,3 +161,31 @@ def get_stage_model(stage: str) -> str:
     cfg = get_config()
     stage_models = cfg.get("stage_models", {})
     return stage_models.get(stage, cfg.get("models", {}).get("default", "smart"))
+
+
+def get_neighborhood_coordinates(names: list[str]) -> list[dict]:
+    """추천 동네 이름으로 lat/lng를 조회합니다. adong과 ldong 테이블 모두 시도."""
+    if not names:
+        return []
+    try:
+        engine = create_engine(_build_database_url())
+        sql = text("""
+            SELECT name, ST_Y(location) AS lat, ST_X(location) AS lng FROM adong
+            WHERE name = ANY(:names) AND location IS NOT NULL
+            UNION
+            SELECT name, ST_Y(location) AS lat, ST_X(location) AS lng FROM ldong
+            WHERE name = ANY(:names) AND location IS NOT NULL
+        """)
+        with engine.connect() as conn:
+            rows = conn.execute(sql, {"names": names}).fetchall()
+        seen: set[str] = set()
+        result = []
+        for row in rows:
+            name = row[0]
+            if name not in seen:
+                seen.add(name)
+                result.append({"name": name, "lat": float(row[1]), "lng": float(row[2])})
+        return result
+    except Exception as e:
+        print(f"[좌표 조회 실패] {e}")
+        return []
