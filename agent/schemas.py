@@ -65,6 +65,7 @@ class VisualizationChart(BaseModel):
 class InfoVisualizationData(BaseModel):
     """info query_type용 범용 테이블 데이터"""
     label: str = Field(description="항목 이름 (도서관명, 동네명, 시설명 등)")
+    value: Optional[float] = Field(default=None, description="bar/line 타입일 때 수치 값. table/map이면 None")
     columns: dict = Field(
         default_factory=dict,
         description="key-value 형태 데이터. 예: {'월': '09:00-21:00'} 또는 {'카페수': 12}"
