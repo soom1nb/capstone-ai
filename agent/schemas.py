@@ -50,11 +50,13 @@ class ClassificationOutput(BaseModel):
 # ── 3단계: 시각화 데이터 ─────────────────────────────────────────────────────
 class VisualizationData(BaseModel):
     label: str = Field(description="항목 레이블. 예: '장충동2가', '서울 평균'")
-    value: float = Field(description="수치 값")
+    value: float = Field(default=0.0, description="수치 값. map 타입이면 0으로 설정")
     is_baseline: bool = Field(default=False, description="True면 비교 기준선으로 표시")
+    lat: Optional[float] = Field(default=None, description="지도 핀 위도 (map 타입에서만 사용)")
+    lng: Optional[float] = Field(default=None, description="지도 핀 경도 (map 타입에서만 사용)")
 
 class VisualizationChart(BaseModel):
-    type: str = Field(description="'bar' | 'line' | 'table' | 'none'")
+    type: str = Field(description="'bar' | 'line' | 'table' | 'map' | 'none'")
     title: str = Field(default="", description="차트 제목")
     unit: str = Field(default="", description="수치 단위. 예: 만원, 개, %")
     data: list[VisualizationData] = Field(default_factory=list)
@@ -67,12 +69,14 @@ class InfoVisualizationData(BaseModel):
         default_factory=dict,
         description="key-value 형태 데이터. 예: {'월': '09:00-21:00'} 또는 {'카페수': 12}"
     )
+    lat: Optional[float] = Field(default=None, description="지도 핀 위도 (map 타입에서만 사용)")
+    lng: Optional[float] = Field(default=None, description="지도 핀 경도 (map 타입에서만 사용)")
 
 
 class InfoOutput(BaseModel):
     answer: str = Field(description="사용자에게 보여줄 최종 자연어 답변. 한국어로 작성")
     visualization_type: str = Field(
-        description="'table'(목록/시간표) | 'bar'(수치 비교) | 'line'(시간 추이) | 'none'"
+        description="'table'(목록/시간표) | 'bar'(수치 비교) | 'line'(시간 추이) | 'map'(지도 핀) | 'none'"
     )
     visualization_title: str = Field(default="", description="시각화 제목")
     visualization_unit: str = Field(default="", description="수치 단위. 예: 만원, 개, %, km. 단위 없으면 빈 문자열")
