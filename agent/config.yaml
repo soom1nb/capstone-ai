@@ -3,8 +3,8 @@
 
 # ── 모델 설정 ──────────────────────────────────────────────────────────────
 models:
-  fast: gpt-4o-mini
-  smart: gpt-4o
+  fast: gpt-5.4-nano
+  smart: gpt-5.4
   default: smart
 
 # 단계별 모델 지정 (변경 시 여기만 수정)
